@@ -17,8 +17,9 @@ public class CameraController : MonoBehaviour {
     private void Start()
     {
         _mainCamera = Camera.main;
+        
         _direction = new Vector3();
-        transform.rotation = Quaternion.Euler(35f, 0f, 0f);
+        transform.rotation = Quaternion.Euler(40f, 0f, 0f);
     }
 
     private void Update()
@@ -37,10 +38,9 @@ public class CameraController : MonoBehaviour {
     private void Move()
     {
         var form = transform;
-        var position = form.position;
-
         var moveDirection = form.forward * _direction.z + form.right * _direction.x;
 
+        var position = form.position;
         position += moveDirection * (moveFactor * Time.deltaTime);
         
         // height should always stay the same

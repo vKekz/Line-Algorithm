@@ -30,7 +30,7 @@ namespace Lines
 
         private void Update()
         {
-            if (Input.GetMouseButtonDown(2))
+            if (Input.GetKeyDown(KeyCode.C))
             {
                 _lineHandler.GetIntersections().Clear();
                 _lines.Clear();
@@ -38,6 +38,14 @@ namespace Lines
             if (Input.GetMouseButtonDown(0))
             {
                 _startPosition = _gridGenerator.GetMousePositionOnGrid();
+            }
+
+            if (Input.GetKeyDown(KeyCode.Backspace))
+            {
+                if (_lines.Count > 1)
+                {
+                    _lines.RemoveAt(_lines.Count - 1);
+                }
             }
 
             if (_startPosition == null)
@@ -50,7 +58,7 @@ namespace Lines
                 
                 // Create a new line based on start and endpoint of mouse
                 var newLine = new CustomLine(_startPosition, _endPosition);
-                if (newLine.GetLength() < _gridGenerator.gridSize)
+                if (newLine.Length < _gridGenerator.gridSize)
                 {
                     return;
                 }
@@ -73,12 +81,17 @@ namespace Lines
                 var line = _lines[i];
                 
                 Handles.DrawLine(line.StartPoint, line.EndPoint, 3f);
-                Handles.Label(line.GetMiddlePoint(), "(" + (i + 1) + ") " + line.GetLength() + "m");
+                Handles.Label(line.MiddlePoint, "(" + (i + 1) + ") " + line.Length + "m " + (line.Direction == Direction.Right ? ">" : "<"));
             }
-            
-            foreach (var intersection in _lineHandler.GetIntersections())
+
+            for (var i = 0; i < _lineHandler.GetIntersections().Count; i++)
             {
+                var intersection = _lineHandler.GetIntersections()[i];
+                
                 Handles.DrawDottedLine(intersection, new Vector3(intersection.x, 0.75f, intersection.z), 2);
+                
+                intersection.y += 1f;
+                Handles.Label(intersection, "(" + (i + 1) + ")");
             }
         }
     }

@@ -322,10 +322,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f676303859650a94ebad4b55eab61e28, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  moveFactor: 25
-  zoomFactor: 500
-  rotationFactor: 150
-  height: 15
+  moveFactor: 15
+  zoomFactor: 250
+  rotationFactor: 100
+  height: 20
 --- !u!1 &1851435015
 GameObject:
   m_ObjectHideFlags: 0
@@ -372,7 +372,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   spherePrefab: {fileID: 4704704747527852500, guid: 30e2d75557fbf5c4f84692a2cbfeea8b, type: 3}
-  length: 50
+  length: 25
   gridSize: 2
 --- !u!114 &1851435018
 MonoBehaviour:
@@ -386,7 +386,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 203da8eb9f7f98b4d8b4e48a3dd7cde8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  combine: 0
+  combine: 1
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

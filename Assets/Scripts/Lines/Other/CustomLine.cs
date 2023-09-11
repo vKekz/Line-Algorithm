@@ -1,29 +1,32 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 
 namespace Lines.Other
 {
-    public struct CustomLine
+    public class CustomLine : IEquatable<CustomLine>
     {
         public Vector3 StartPoint { get; }
         public Vector3 EndPoint { get; }
-        public bool Remove { get; private set; }
+        public Vector3 MiddlePoint { get; }
+        public Direction Direction { get; }
+        public float Length { get; }
+        public bool Skip { get; private set; }
 
-        public CustomLine(Vector3 startPoint, Vector3 endPoint, bool remove = false)
+        public CustomLine(Vector3 startPoint, Vector3 endPoint)
         {
             StartPoint = startPoint;
             EndPoint = endPoint;
-            Remove = remove;
+            Skip = false;
+
+            // pre compute values based on start- and endpoint
+            MiddlePoint = GetMiddlePoint();
+            Direction = GetDirection();
+            Length = GetLength();
         }
 
-        public CustomLine ToRemove()
+        public CustomLine MakeSkip()
         {
-            Remove = true;
-            return this;
-        }
-        
-        public CustomLine ResetRemove()
-        {
-            Remove = false;
+            Skip = true;
             return this;
         }
         
@@ -55,8 +58,8 @@ namespace Lines.Other
             var x = (secondDeltaX * firstEquation - firstDeltaX * secondEquation) / determinant;
             var z = (firstDeltaZ * secondEquation - secondDeltaZ * firstEquation) / determinant;
             var intersectionPoint = new Vector3(x, 0, z);
-
-            // Check if out of bounds
+            
+            // Check if the intersection point is on both lines
             if (ContainsPoint(intersectionPoint) && customLine.ContainsPoint(intersectionPoint))
             {
                 return new Vector3(x, 0, z);
@@ -65,15 +68,15 @@ namespace Lines.Other
             return default;
         }
 
+        // TODO: improve check, because diagonal lines are not working as intended
         /// <returns>Returns true if the given point is on the line.</returns>
-        private bool ContainsPoint(Vector3 point)
+        public bool ContainsPoint(Vector3 point)
         {
             return ((point.x >= StartPoint.x && point.x <= EndPoint.x) || (point.x <= StartPoint.x && point.x >= EndPoint.x)) && 
                 ((point.z >= StartPoint.z && point.z <= EndPoint.z) || (point.z <= StartPoint.z && point.z >= EndPoint.z));
         }
-
-        /// <returns>Returns the middle point of the line.</returns>
-        public Vector3 GetMiddlePoint()
+        
+        private Vector3 GetMiddlePoint()
         {
             var middleX = (StartPoint.x + EndPoint.x) / 2;
             var middleZ = (StartPoint.z + EndPoint.z) / 2;
@@ -81,8 +84,7 @@ namespace Lines.Other
             return new Vector3(middleX, 0, middleZ);
         }
         
-        /// <returns>Returns the direction from start to end of the line.</returns>
-        public Direction GetDirection()
+        private Direction GetDirection()
         {
             var startPoint = StartPoint;
             var endPoint = EndPoint;
@@ -103,15 +105,29 @@ namespace Lines.Other
             return crossProduct > 0 ? Direction.Right : Direction.Left;
         }
 
-        /// <returns>Returns the length from start to end of the line.</returns>
-        public float GetLength()
+        private float GetLength()
         {
             return Mathf.Sqrt(Mathf.Pow(EndPoint.x - StartPoint.x, 2) + Mathf.Pow(EndPoint.z - StartPoint.z, 2));
         }
         
         public override string ToString()
         {
-            return "Start: " + StartPoint + ", End: " + EndPoint + ", Middle: " + GetMiddlePoint() + ", Direction: " + GetDirection() + ", Length: " + GetLength() + "m";
+            return "Start: " + StartPoint + ", End: " + EndPoint + ", Middle: " + MiddlePoint + ", Direction: " + Direction + ", Length: " + Length + "m";
+        }
+
+        public bool Equals(CustomLine otherLine)
+        {
+            return otherLine != null && StartPoint == otherLine.StartPoint && EndPoint == otherLine.EndPoint;
+        }
+        
+        public override bool Equals(object obj)
+        {
+            return Equals(obj as CustomLine);
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(StartPoint, EndPoint);
         }
     }
 }

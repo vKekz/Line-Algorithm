@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Lines.Other;
 using UnityEngine;
@@ -8,9 +9,10 @@ namespace Lines.Handler
     public class LineHandler : ILineHandler
     {
         private readonly List<Vector3> _intersections = new();
+        private const float FloatingTolerance = 0.0001f;
 
         /// <returns>Returns the given array of lines but split with new lines if any intersections were found.</returns>
-        public IEnumerable<CustomLine> Split(CustomLine[] lines, CustomLine newLine, float gridSize)
+        public IEnumerable<CustomLine> Split(CustomLine[] lines, CustomLine newLine, float minLength)
         {
             // Return the same list if there is less than 2 lines
             var count = lines.Length;
@@ -18,13 +20,13 @@ namespace Lines.Handler
             {
                 return lines;
             }
-
-            var linesToRemove = new List<CustomLine>();
-            var linesCreated = new List<CustomLine>();
             
             var linesToReturn = new List<CustomLine>();
             linesToReturn.AddRange(lines);
-
+            
+            var linesToRemove = new List<CustomLine>();
+            var linesCreated = new List<CustomLine>();
+            
             foreach (var otherLine in linesToReturn)
             {
                 if (otherLine.Equals(newLine))
@@ -32,63 +34,61 @@ namespace Lines.Handler
                     continue;
                 }
                 
+                // Check if the added line is intersecting with any other line
                 var intersection = newLine.Intersects(otherLine);
                 if (intersection == default)
                 {
                     continue;
                 }
                 
-                // Create new lines based on intersection (should always be 4 in total)
-                // Checking for length before creating, because they might be too small or on the same spot
+                // Lines can also be half as long as the initial grid size (diagonal)
+                minLength /= 2f;
                 
-                var intersects = false;
+                // Create new lines based on intersection (can be 4 in total)
+                // Checking for length before creating, because they might be too small
+                
                 var first = new CustomLine(newLine.StartPoint, intersection);
-                if (first.GetLength() >= gridSize)
+                if (first.Length >= minLength)
                 {
-                    Debug.Log("1: " + first);
-                    
                     linesCreated.Add(first);
-                    intersects = true;
                 }
 
                 var second = new CustomLine(intersection, newLine.EndPoint);
-                if (second.GetLength() >= gridSize)
+                if (second.Length >= minLength)
                 {
-                    Debug.Log("2: " + second);
-
                     linesCreated.Add(second);
-                    intersects = true;
                 }
                 
                 var third = new CustomLine(otherLine.StartPoint, intersection);
-                if (third.GetLength() >= gridSize)
+                if (third.Length >= minLength)
                 {
-                    Debug.Log("3: " + third);
-
                     linesCreated.Add(third);
-                    intersects = true;
                 }
                 
                 var fourth = new CustomLine(intersection, otherLine.EndPoint);
-                if (fourth.GetLength() >= gridSize)
+                if (fourth.Length >= minLength)
                 {
-                    Debug.Log("4: " + fourth);
-
                     linesCreated.Add(fourth);
-                    intersects = true;
                 }
-
-                if (intersects)
-                {
-                    Debug.Log("Intersection at " + intersection);
-                    
-                    // Lines that were split should be removed later
-                    linesToRemove.Add(otherLine);
-                    linesToRemove.Add(newLine);
                 
-                    // Just for intersection debugging
-                    GetIntersections().Add(intersection);
+                // If no lines were created continue with iteration
+                if (linesCreated.Count <= 0)
+                {
+                    continue;
                 }
+                    
+                // Lines that were split should be removed later
+                linesToRemove.Add(otherLine);
+                linesToRemove.Add(newLine);
+                
+                // TODO: Update intersections when re-/moving a line
+                if (GetIntersections().Contains(intersection))
+                {
+                    continue;
+                }
+                
+                // Save intersection
+                GetIntersections().Add(intersection);
             }
 
             // Remove other lines that were split
@@ -97,13 +97,16 @@ namespace Lines.Handler
                 linesToReturn.Remove(toRemove);
             }
             
-            // Add new lines to previous list
-            linesToReturn.AddRange(linesCreated);
-            
+            // Add new lines to previous list if they don't already exist (fixes duplicates)
+            foreach (var createdLine in linesCreated.Where(createdLine => !linesToReturn.Contains(createdLine)))
+            {
+                linesToReturn.Add(createdLine);
+            }
+
             return linesToReturn;
         }
 
-        /// <returns>Returns the given array of lines, but lines that have the same direction and were split are now merged together.</returns>
+        /// <returns>Returns the given array of lines, but lines that can be seen as one, are now merged together.</returns>
         public IEnumerable<CustomLine> Merge(CustomLine[] lines, CustomLine newLine)
         {
             // Return the same list if there is less than 2 lines
@@ -121,89 +124,110 @@ namespace Lines.Handler
             
             foreach (var otherLine in linesToReturn)
             {
-                if (otherLine.Equals(newLine) || otherLine.Remove || newLine.Remove)
+                if (otherLine.Skip || newLine.Skip)
                 {
                     continue;
                 }
 
+                var newStartPoint = newLine.StartPoint;
+                var newEndPoint = newLine.EndPoint;
+
+                // Check if the compared lines are able to merge (intersections)
+                var intersected = GetIntersections().Any(intersection => newStartPoint == intersection || newEndPoint == intersection);
+                if (intersected)
+                {
+                    continue;
+                }
+                
                 var otherStartPoint = otherLine.StartPoint;
                 var otherEndPoint = otherLine.EndPoint;
 
-                var newStartPoint = newLine.StartPoint;
-                var newEndpoint = newLine.EndPoint;
+                // create placeholder
+                var mergedLine = new CustomLine(Vector3.zero, Vector3.zero);
+                
+                // TODO: allow diagonal merges
+                
+                // Special case 1 (Other line between the new line)
+                if (newLine.ContainsPoint(otherStartPoint) && newLine.ContainsPoint(otherEndPoint) && newLine.Length > otherLine.Length && 
+                    
+                    // Anchor points
+                    (Math.Abs(newStartPoint.x - otherStartPoint.x) < FloatingTolerance || 
+                     Math.Abs(newStartPoint.z - otherStartPoint.z) < FloatingTolerance) && 
+                    (Math.Abs(newEndPoint.x - otherStartPoint.x) < FloatingTolerance || 
+                     Math.Abs(newEndPoint.z - otherStartPoint.z) < FloatingTolerance))
+                {
+                    // can later be changed to match previous direction (just swap newStartPoint with newEndPoint), if needed
+                    mergedLine = new CustomLine(newStartPoint, newEndPoint);
+                }
+                
+                // First case (New: Start == Other: End)
+                if (newStartPoint == otherEndPoint && 
+                    (Math.Abs(newEndPoint.x - otherStartPoint.x) < FloatingTolerance || 
+                     Math.Abs(newEndPoint.z - otherStartPoint.z) < FloatingTolerance) &&
+                    
+                    // Anchor point
+                    (Math.Abs(newEndPoint.x - otherEndPoint.x) < FloatingTolerance || 
+                     Math.Abs(newEndPoint.z - otherEndPoint.z) < FloatingTolerance))
+                {
+                    mergedLine = newLine.Direction == otherLine.Direction ? 
+                        new CustomLine(otherStartPoint, newEndPoint) : new CustomLine(newStartPoint, newEndPoint);
+                }
+                
+                // Second case (New: Start == Other: Start)
+                if (newStartPoint == otherStartPoint && 
+                    (Math.Abs(newEndPoint.x - otherEndPoint.x) < FloatingTolerance || 
+                     Math.Abs(newEndPoint.z - otherEndPoint.z) < FloatingTolerance))
+                {
+                    mergedLine = newLine.Direction == otherLine.Direction ? 
+                        new CustomLine(otherStartPoint, newEndPoint) : new CustomLine(newEndPoint, otherEndPoint);
+                }
+                
+                // Third case (New: End == Other: End)
+                if (newEndPoint == otherEndPoint && 
+                    (Math.Abs(newStartPoint.x - otherStartPoint.x) < FloatingTolerance || 
+                     Math.Abs(newStartPoint.z - otherStartPoint.z) < FloatingTolerance))
+                {
+                    mergedLine = newLine.Direction == otherLine.Direction ? 
+                        new CustomLine(newStartPoint, newEndPoint) : new CustomLine(otherStartPoint, newStartPoint);
+                }
+                
+                // Fourth case (New: End == Other: Start)
+                if (newEndPoint == otherStartPoint && 
+                    (Math.Abs(newStartPoint.x - otherEndPoint.x) < FloatingTolerance || 
+                     Math.Abs(newStartPoint.z - otherEndPoint.z) < FloatingTolerance))
+                {
+                    mergedLine = newLine.Direction == otherLine.Direction ? 
+                        new CustomLine(newStartPoint, otherEndPoint) : new CustomLine(newStartPoint, otherStartPoint);
+                }
 
-                var remove = false;
-                
-                // First case
-                if (newStartPoint == otherEndPoint && (newEndpoint.x == otherStartPoint.x || newEndpoint.z == otherStartPoint.z))
+                // Continue iteration if no lines were merged
+                if (mergedLine.Length == 0f)
                 {
-                    var first = new CustomLine(otherStartPoint, newEndpoint);
-                    linesCreated.Add(first);
-                    
-                    Debug.Log("Merge at 1: " + first);
-                
-                    remove = true;
+                    continue;
                 }
                 
-                // Second case
-                if (newEndpoint == otherEndPoint && (newStartPoint.x == otherStartPoint.x || newStartPoint.z == otherStartPoint.z))
-                {
-                    var second = new CustomLine(otherStartPoint, newStartPoint);
-                    linesCreated.Add(second);
-                    
-                    Debug.Log("Merge at 2: " + second);
-                    
-                    remove = true;
-                }
+                linesToRemove.Add(otherLine.MakeSkip());
+                linesToRemove.Add(newLine.MakeSkip());
                 
-                // Third case
-                if (newEndpoint == otherStartPoint && (newStartPoint.x == otherEndPoint.x || newStartPoint.z == otherEndPoint.z))
-                {
-                    var third = new CustomLine(newStartPoint, otherEndPoint);
-                    linesCreated.Add(third);
-                    
-                    Debug.Log("Merge at 3: " + third);
-                    
-                    remove = true;
-                }
-                
-                // Fourth case
-                if (newStartPoint == otherStartPoint && (newEndpoint.x == otherEndPoint.x || newEndpoint.z == otherEndPoint.z))
-                {
-                    var fourth = new CustomLine(newEndpoint, otherEndPoint);
-                    linesCreated.Add(fourth);
-                    
-                    Debug.Log("Merge at 4: " + fourth);
-                    
-                    remove = true;
-                }
-
-                if (remove)
-                {
-                    Debug.Log(newLine);
-                    Debug.Log(otherLine);
-                    
-                    linesToRemove.Add(otherLine.ToRemove());
-                    linesToRemove.Add(newLine.ToRemove());
-                }
+                linesCreated.Add(mergedLine);
             }
             
-            // Remove other lines that were split
+            // Remove lines that were merged
             foreach (var toRemove in linesToRemove)
             {
-                linesToReturn.Remove(toRemove.ResetRemove());
+                linesToReturn.Remove(toRemove);
             }
             
-            // Add new lines to previous list
+            // Add line that was merged
             linesToReturn.AddRange(linesCreated);
             
             return linesToReturn;
         }
 
         /// <returns>Returns the given array but combined with the methods "Split" and "Merge".</returns>
-        public IEnumerable<CustomLine> Combine(CustomLine[] lines, CustomLine newLine, float gridSize)
+        public IEnumerable<CustomLine> Combine(CustomLine[] lines, CustomLine newLine, float minLength)
         {
-            return Merge(Split(lines, newLine, gridSize).ToArray(), newLine);
+            return Split(Merge(lines, newLine).ToArray(), newLine, minLength);
         }
 
         public List<Vector3> GetIntersections()
