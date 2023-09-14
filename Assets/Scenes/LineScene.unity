@@ -372,7 +372,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   spherePrefab: {fileID: 4704704747527852500, guid: 30e2d75557fbf5c4f84692a2cbfeea8b, type: 3}
-  length: 25
+  length: 50
   gridSize: 2
 --- !u!114 &1851435018
 MonoBehaviour:
