@@ -16,13 +16,16 @@ namespace Lines.Other
         public float Length { get; }
         
         public bool Skip { get; private set; }
+        public bool RecentlyMerged { get; private set; }
         
         public CustomLine(Vector3 startPoint, Vector3 endPoint)
         {
             StartPoint = startPoint;
             EndPoint = endPoint;
+            
             Skip = false;
-
+            RecentlyMerged = false;
+            
             // pre compute values based on start- and endpoint
             MiddlePoint = GetMiddlePoint();
             DirectionVector = GetDirectionVector();
@@ -35,9 +38,15 @@ namespace Lines.Other
             Skip = true;
             return this;
         }
+
+        public CustomLine ResetMerge()
+        {
+            RecentlyMerged = false;
+            return this;
+        }
         
         /// <returns>Returns a Vector where the intersection happens, if there is one. Otherwise it returns default.</returns>
-        public Vector3 Intersects(CustomLine line)
+        public Vector3 Intersection(CustomLine line)
         {
             var firstLineStart = StartPoint;
             var firstLineEnd = EndPoint;
@@ -74,8 +83,33 @@ namespace Lines.Other
             return default;
         }
 
+        // TODO: Improve this check
+        /// <returns>Returns true if the two lines can be merged together. Checks for intersections and parallelism.</returns>
+        public bool CanMergeWith(CustomLine line, IEnumerable<Vector3> intersections)
+        {
+            return !intersections.Any(intersection => StartPoint == intersection || EndPoint == intersection) && ParallelTo(line);
+        }
+        
+        /// <returns>Returns true if the given line is on the line.</returns>
+        public bool ContainsLine(CustomLine line)
+        {
+            return ContainsPoints(line.StartPoint, line.EndPoint);
+        }
+        
+        /// <returns>Returns true if all given points are on the line.</returns>
+        public bool ContainsPoints(params Vector3[] points)
+        {
+            return points.All(ContainsPoint);
+        }
+        
+        /// <returns>Returns true if the given point is on the line.</returns>
+        private bool ContainsPoint(Vector3 point)
+        {
+            return IsPointInBounds(point) && DistanceToPoint(point) <= Constants.FloatingTolerance;
+        }
+        
         /// <returns>Returns true if line is parallel to given one.</returns>
-        public bool ParallelTo(CustomLine line)
+        private bool ParallelTo(CustomLine line)
         {
             var secondLineStart = line.StartPoint;
             var secondLineEnd = line.EndPoint;
@@ -90,30 +124,18 @@ namespace Lines.Other
             return determinant == 0f;
         }
 
-        /// <returns>Returns the shortest distance to the given point.</returns>
-        private float DistanceToPoint(Vector3 point)
-        {
-            return Mathf.Abs((point.x - StartPoint.x) * DirectionVector.z - (point.z - StartPoint.z) * DirectionVector.x) / Length;
-        }
-
-        /// <returns>Returns true if the given point is on the line.</returns>
-        private bool ContainsPoint(Vector3 point)
-        {
-            return IsPointInBounds(point) && DistanceToPoint(point) <= Constants.FloatingTolerance;
-        }
-
-        /// <returns>Returns true if all given points are on the line.</returns>
-        public bool ContainsPoints(params Vector3[] points)
-        {
-            return points.All(ContainsPoint);
-        }
-
         private bool IsPointInBounds(Vector3 point)
         {
             return ((point.x >= StartPoint.x && point.x <= EndPoint.x) ||
                     (point.x <= StartPoint.x && point.x >= EndPoint.x)) &&
                    ((point.z >= StartPoint.z && point.z <= EndPoint.z) ||
                     (point.z <= StartPoint.z && point.z >= EndPoint.z));
+        }
+        
+        /// <returns>Returns the shortest distance to the given point.</returns>
+        private float DistanceToPoint(Vector3 point)
+        {
+            return Mathf.Abs((point.x - StartPoint.x) * DirectionVector.z - (point.z - StartPoint.z) * DirectionVector.x) / Length;
         }
         
         private Vector3 GetMiddlePoint()
@@ -154,7 +176,6 @@ namespace Lines.Other
         public IEnumerable<CustomLine> Split(CustomLine line, Vector3 intersection)
         {
             // Create new lines based on intersection (can be 4 in total)
-            // Checking for length before creating, because they might be too small
             var lines = new List<CustomLine>(4);
             
             var first = new CustomLine(StartPoint, intersection);
@@ -175,6 +196,7 @@ namespace Lines.Other
             return lines;
         }
         
+        // TODO: Tune cases to match the user's logical expectation
         /// <returns>If the current line can merge with the given one, this returns a new merged line, otherwise default.</returns>
         public CustomLine Merge(CustomLine line)
         {
@@ -182,9 +204,9 @@ namespace Lines.Other
             
             var otherStartPoint = line.StartPoint;
             var otherEndPoint = line.EndPoint;
-            
+
             // First special case (Other line is between the new line)
-            if (ContainsPoints(otherStartPoint, otherEndPoint) && Length > line.Length)
+            if (ContainsLine(line) && Length > line.Length)
             {
                 // can later be changed to match previous direction (just swap newStartPoint with newEndPoint), if needed
                 mergeResult = new CustomLine(StartPoint, EndPoint);
@@ -224,6 +246,8 @@ namespace Lines.Other
                 mergeResult = Direction == line.Direction ? 
                     new CustomLine(StartPoint, otherEndPoint) : new CustomLine(StartPoint, otherStartPoint);
             }
+
+            mergeResult.RecentlyMerged = true;
             
             return mergeResult.Length != 0f ? mergeResult : default;
         }

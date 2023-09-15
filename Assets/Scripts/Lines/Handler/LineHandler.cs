@@ -7,8 +7,9 @@ namespace Lines.Handler
 {
     public class LineHandler : ILineHandler
     {
+        
         private readonly List<Vector3> _intersections = new();
-
+        
         public IEnumerable<CustomLine> Split(CustomLine[] lines, CustomLine newLine)
         {
             // Return the same list if there is less than 2 lines
@@ -17,18 +18,18 @@ namespace Lines.Handler
             {
                 return lines;
             }
-
-            var currentIntersections = new List<Vector3>();
+            
+            var lastIntersections = new List<Vector3>();
             var linesToRemove = new List<CustomLine>();
             var linesCreated = new List<CustomLine>();
             
             var linesToReturn = new List<CustomLine>();
-            linesToReturn.AddRange(lines);
+            linesToReturn.AddRange(lines); 
             
             foreach (var otherLine in linesToReturn)
             {
                 // Check for intersections between the new and other line
-                var intersection = newLine.Intersects(otherLine);
+                var intersection = newLine.Intersection(otherLine);
                 if (intersection == default)
                 {
                     continue;
@@ -46,33 +47,33 @@ namespace Lines.Handler
                 // Lines that were split should be removed later
                 linesToRemove.AddRange(new[] { otherLine, newLine });
                 
+                // Save intersection
                 SaveIntersection(intersection);
 
-                if (currentIntersections.Contains(intersection))
+                if (lastIntersections.Contains(intersection))
                 {
                     continue;
                 }
-                currentIntersections.Add(intersection);
+                lastIntersections.Add(intersection);
             }
             
-            // Remove other lines that were split
             foreach (var toRemove in linesToRemove)
             {
                 linesToReturn.Remove(toRemove);
             }
 
-            var intersections = currentIntersections.Count;
+            var intersections = lastIntersections.Count;
             if (intersections > 1)
             {
                 // Sort intersections by position
-                currentIntersections = currentIntersections.OrderBy(i => i.x).ThenBy(i => i.z).ToList();
+                lastIntersections = lastIntersections.OrderBy(i => i.x).ThenBy(i => i.z).ToList();
             }
             
             // Check if there are at least 2 intersections
             while (intersections > 1)
             {
-                var lastIntersection = currentIntersections[intersections - 1];
-                var beforeLastIntersection = currentIntersections[intersections - 2];
+                var lastIntersection = lastIntersections[intersections - 1];
+                var beforeLastIntersection = lastIntersections[intersections - 2];
                 
                 intersections--;
                 
@@ -86,9 +87,13 @@ namespace Lines.Handler
                 linesCreated.RemoveAll(line => line.ContainsPoints(lastIntersection, beforeLastIntersection));
                 
                 // Create line that connects both intersections
-                linesToReturn.Add(new CustomLine(lastIntersection, beforeLastIntersection));
+                linesCreated.Add(new CustomLine(beforeLastIntersection, lastIntersection));
             }
-
+            
+            // This removes unnecessary lines that were created during merges
+            linesCreated.RemoveAll(createdLine => linesToReturn.Where(line => line.RecentlyMerged)
+                                                                     .Any(mergedLine => mergedLine.ResetMerge().ContainsLine(createdLine)));
+            
             // Add new lines to previous list if they don't already exist (fixes duplicates)
             linesToReturn.AddRange(linesCreated.Where(createdLine => !linesToReturn.Contains(createdLine)));
             
@@ -104,46 +109,34 @@ namespace Lines.Handler
                 return lines;
             }
             
-            var linesToRemove = new List<CustomLine>();
-            var linesCreated = new List<CustomLine>();
+            var mergeResult = new CustomLine(Vector3.zero, Vector3.zero);
             
+            var linesToRemove = new List<CustomLine>();
             var linesToReturn = new List<CustomLine>();
             linesToReturn.AddRange(lines);
             
-            var newStartPoint = newLine.StartPoint;
-            var newEndPoint = newLine.EndPoint;
-            
             foreach (var otherLine in linesToReturn)
             {
-                if (otherLine.Skip || newLine.Skip)
+                if (otherLine.Skip || !newLine.CanMergeWith(otherLine, GetIntersections()))
                 {
                     continue;
                 }
-
-                // Check if there is any intersection between the new line and other line (if so, don't merge)
-                var intersected = GetIntersections().Any(intersection => newStartPoint == intersection || newEndPoint == intersection);
-                if (intersected)
-                {
-                    continue;
-                }
-                
-                if (!newLine.ParallelTo(otherLine))
-                {
-                    continue;
-                }
-                
-                // Merged line
-                var mergeResult = newLine.Merge(otherLine);
+             
+                mergeResult = newLine.Merge(otherLine);
                 if (mergeResult == default)
                 {
                     continue;
                 }
+
+                // This is just some testing to improve and fix CanMergeWith Method
+                // if (GetIntersections().Any(lastIntersection => mergeResult.ContainsPoints(lastIntersection) &&  
+                //                                                lastIntersection != mergeResult.StartPoint && 
+                //                                                lastIntersection != mergeResult.EndPoint))
+                // {
+                //     continue;
+                // }
                 
-                // Remove lines that were merged
                 linesToRemove.AddRange(new[] { otherLine.MakeSkip(), newLine.MakeSkip() });
-                
-                // Add merge result
-                linesCreated.Add(mergeResult);
             }
             
             // Remove lines that were merged
@@ -153,8 +146,11 @@ namespace Lines.Handler
             }
             
             // Add line that was merged
-            linesToReturn.AddRange(linesCreated);
-            
+            if (mergeResult != default)
+            {
+                linesToReturn.Add(mergeResult);   
+            }
+         
             return linesToReturn;
         }
 
@@ -170,7 +166,6 @@ namespace Lines.Handler
             {
                 return;
             }
-            
             GetIntersections().Add(position);
         }
 
