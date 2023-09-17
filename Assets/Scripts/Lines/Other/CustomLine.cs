@@ -196,7 +196,6 @@ namespace Lines.Other
             return lines;
         }
         
-        // TODO: Tune cases to match the user's logical expectation
         /// <returns>If the current line can merge with the given one, this returns a new merged line, otherwise default.</returns>
         public CustomLine Merge(CustomLine line)
         {
@@ -212,25 +211,30 @@ namespace Lines.Other
                 mergeResult = new CustomLine(StartPoint, EndPoint);
             }
 
-            // Second special case (New: Start or Endpoint between other line)
-            if (line.ContainsPoint(StartPoint) || line.ContainsPoint(EndPoint))
+            // Second special case (New: StartPoint between other line)
+            if (line.ContainsPoint(StartPoint))
             {
                 mergeResult = Direction == line.Direction ? 
                     new CustomLine(otherStartPoint, EndPoint) : new CustomLine(otherEndPoint, EndPoint);
             }
             
+            // Second special case 2 (New EndPoint between other line)
+            if (line.ContainsPoint(EndPoint))
+            {
+                mergeResult = Direction == line.Direction ? 
+                    new CustomLine(StartPoint, otherEndPoint) : new CustomLine(StartPoint, otherStartPoint);
+            }
+            
             // First case (New: Start == Other: End)
             if (StartPoint == otherEndPoint)
             {
-                mergeResult = Direction == line.Direction ? 
-                    new CustomLine(otherStartPoint, EndPoint) : new CustomLine(StartPoint, EndPoint);
+                mergeResult = new CustomLine(otherStartPoint, EndPoint);
             }
             
             // Second case (New: Start == Other: Start)
             if (StartPoint == otherStartPoint)
             {
-                mergeResult = Direction == line.Direction ? 
-                    new CustomLine(otherStartPoint, EndPoint) : new CustomLine(EndPoint, otherEndPoint);
+                mergeResult = new CustomLine(EndPoint, otherEndPoint);
             }
             
             // Third case (New: End == Other: End)
@@ -248,8 +252,7 @@ namespace Lines.Other
             }
 
             mergeResult.RecentlyMerged = true;
-            
-            return mergeResult.Length != 0f ? mergeResult : default;
+            return mergeResult.Length > Constants.FloatingTolerance ? mergeResult : default;
         }
 
         public bool Equals(CustomLine otherLine)

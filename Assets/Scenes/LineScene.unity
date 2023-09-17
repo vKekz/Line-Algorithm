@@ -319,12 +319,12 @@ MonoBehaviour:
   m_GameObject: {fileID: 963194225}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f676303859650a94ebad4b55eab61e28, type: 3}
+  m_Script: {fileID: 11500000, guid: c4634fb5d9e100049a3967323fdff649, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  moveFactor: 15
-  zoomFactor: 250
-  rotationFactor: 100
+  moveFactor: 25
+  zoomFactor: 500
+  rotationFactor: 150
   height: 20
 --- !u!1 &1851435015
 GameObject:
@@ -335,8 +335,8 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1851435016}
-  - component: {fileID: 1851435017}
   - component: {fileID: 1851435018}
+  - component: {fileID: 1851435017}
   m_Layer: 0
   m_Name: GridObject
   m_TagString: Untagged
@@ -368,12 +368,10 @@ MonoBehaviour:
   m_GameObject: {fileID: 1851435015}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5a73c5560b748724fb34f5800ca1b4fc, type: 3}
+  m_Script: {fileID: 11500000, guid: 4f792cc8ad8b87249aae2701be647cb9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  spherePrefab: {fileID: 4704704747527852500, guid: 30e2d75557fbf5c4f84692a2cbfeea8b, type: 3}
-  length: 50
-  gridSize: 2
+  combine: 1
 --- !u!114 &1851435018
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -383,10 +381,12 @@ MonoBehaviour:
   m_GameObject: {fileID: 1851435015}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 203da8eb9f7f98b4d8b4e48a3dd7cde8, type: 3}
+  m_Script: {fileID: 11500000, guid: ba07ca76b573d114786fdf7c7b76ea06, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  combine: 1
+  spherePrefab: {fileID: 4704704747527852500, guid: 30e2d75557fbf5c4f84692a2cbfeea8b, type: 3}
+  length: 50
+  gridSize: 2
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
