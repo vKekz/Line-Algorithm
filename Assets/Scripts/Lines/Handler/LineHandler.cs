@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using Lines.Handler.Exceptions;
 using Lines.Other;
 using UnityEngine;
 
@@ -29,8 +30,12 @@ namespace Lines.Handler
             foreach (var otherLine in linesToReturn)
             {
                 // Check for intersections between the new and other line
-                var intersection = newLine.Intersection(otherLine);
-                if (intersection == default)
+                Vector3 intersection;
+                try
+                {
+                   intersection = newLine.Intersection(otherLine);
+                }
+                catch (InvalidIntersectionException)
                 {
                     continue;
                 }
@@ -49,7 +54,7 @@ namespace Lines.Handler
                 
                 // Save intersection
                 SaveIntersection(intersection);
-
+                
                 if (lastIntersections.Contains(intersection))
                 {
                     continue;
@@ -109,9 +114,8 @@ namespace Lines.Handler
                 return lines;
             }
             
-            var mergeResult = new CustomLine(Vector3.zero, Vector3.zero);
-            
             var linesToRemove = new List<CustomLine>();
+            var linesCreated = new List<CustomLine>();
             var linesToReturn = new List<CustomLine>();
             linesToReturn.AddRange(lines);
             
@@ -122,21 +126,22 @@ namespace Lines.Handler
                     continue;
                 }
              
-                mergeResult = newLine.Merge(otherLine);
-                if (mergeResult == default)
+                var mergeResult = newLine.Merge(otherLine);
+                if (mergeResult == null)
                 {
                     continue;
                 }
 
                 // This is just some testing to improve and fix CanMergeWith Method
-                // if (GetIntersections().Any(lastIntersection => mergeResult.ContainsPoints(lastIntersection) &&  
-                //                                                lastIntersection != mergeResult.StartPoint && 
-                //                                                lastIntersection != mergeResult.EndPoint))
+                // if (GetIntersections().Any(intersection => mergeResult.ContainsPoints(intersection) && 
+                //                                                intersection != mergeResult.StartPoint && 
+                //                                                intersection != mergeResult.EndPoint))
                 // {
                 //     continue;
                 // }
                 
                 linesToRemove.AddRange(new[] { otherLine.MakeSkip(), newLine.MakeSkip() });
+                linesCreated.Add(mergeResult);
             }
             
             // Remove lines that were merged
@@ -145,11 +150,8 @@ namespace Lines.Handler
                 linesToReturn.Remove(toRemove);
             }
             
-            // Add line that was merged
-            if (mergeResult != default)
-            {
-                linesToReturn.Add(mergeResult);   
-            }
+            // Add merged lines
+            linesToReturn.AddRange(linesCreated);
          
             return linesToReturn;
         }

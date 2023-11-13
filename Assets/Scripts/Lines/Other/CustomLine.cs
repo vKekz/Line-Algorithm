@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Lines.Handler.Exceptions;
 using UnityEngine;
 
 namespace Lines.Other
@@ -67,9 +68,12 @@ namespace Lines.Other
             var determinant = firstDeltaZ * secondDeltaX - secondDeltaZ * firstDeltaX;
             if (determinant == 0)
             {
-                return default;
+                // TODO: Return something better
+                // returning default caused a problem when intersecting at (0, 0, 0),
+                // because default returns (0, 0, 0) for vectors
+                throw new InvalidIntersectionException(); 
             }
-
+            
             var x = (secondDeltaX * firstEquation - firstDeltaX * secondEquation) / determinant;
             var z = (firstDeltaZ * secondEquation - secondDeltaZ * firstEquation) / determinant;
             var intersectionPoint = new Vector3(x, 0, z);
@@ -80,7 +84,7 @@ namespace Lines.Other
                 return intersectionPoint;
             }
 
-            return default;
+            throw new InvalidIntersectionException();
         }
 
         // TODO: Improve this check
@@ -164,7 +168,7 @@ namespace Lines.Other
             point.z -= startPoint.z;
 
             var crossProduct = startPoint.x * point.x - startPoint.z * point.z;
-            return crossProduct > 0 ? Direction.Right : Direction.Left;
+            return crossProduct >= 0 ? Direction.Right : Direction.Left;
         }
 
         private float GetLength()
@@ -199,7 +203,7 @@ namespace Lines.Other
         /// <returns>If the current line can merge with the given one, this returns a new merged line, otherwise default.</returns>
         public CustomLine Merge(CustomLine line)
         {
-            var mergeResult = new CustomLine(Vector3.zero, Vector3.zero);
+            CustomLine mergeResult = null;
             
             var otherStartPoint = line.StartPoint;
             var otherEndPoint = line.EndPoint;
@@ -251,8 +255,12 @@ namespace Lines.Other
                     new CustomLine(StartPoint, otherEndPoint) : new CustomLine(StartPoint, otherStartPoint);
             }
 
-            mergeResult.RecentlyMerged = true;
-            return mergeResult.Length > Constants.FloatingTolerance ? mergeResult : default;
+            if (mergeResult != null)
+            {
+                mergeResult.RecentlyMerged = true;
+            }
+
+            return mergeResult;
         }
 
         public bool Equals(CustomLine otherLine)
@@ -272,7 +280,7 @@ namespace Lines.Other
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(StartPoint, EndPoint);
+            return HashCode.Combine(StartPoint, EndPoint, MiddlePoint, Direction, Length);
         }
         
         public override string ToString()

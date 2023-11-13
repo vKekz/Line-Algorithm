@@ -1,10 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using Grid;
 using Lines.Handler;
 using Lines.Other;
 using UnityEditor;
 using UnityEngine;
+using Debug = UnityEngine.Debug;
 
 namespace Lines
 {
@@ -61,16 +63,16 @@ namespace Lines
                     return;
                 }
                 _lines.Add(newLine);
-
-                var start = DateTime.Now.Ticks / (decimal) TimeSpan.TicksPerMillisecond;
+            
+                var watch = Stopwatch.StartNew();
                 
                 var splitLines = combine ? 
                     _lineHandler.Combine(_lines.ToArray(), newLine) : _lineHandler.Split(_lines.ToArray(), newLine);
+            
+                watch.Stop();
+                var elapsed = watch.Elapsed.TotalMilliseconds;
                 
-                var stop = DateTime.Now.Ticks / (decimal) TimeSpan.TicksPerMillisecond;
-                var diff = stop - start;
-                
-                Debug.Log("Modifying lines took " + diff + "ms");
+                Debug.Log($"Handling {_lines.Count} lines took " + elapsed + "ms");
                 
                 // Add new lines to previous list
                 _lines.Clear();
